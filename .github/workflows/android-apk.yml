@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Download source code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Java
@@ -27,13 +27,25 @@ jobs:
         with:
           gradle-version: '8.11.1'
 
+      - name: Extract Android project
+        run: |
+          mkdir -p extracted
+          unzip -q nafahat_ulama_android_apk_build.zip -d extracted
+          settings_file="$(find extracted -type f \( -name settings.gradle -o -name settings.gradle.kts \) -print -quit)"
+          if [ -z "$settings_file" ]; then
+            echo "::error::No Gradle settings file found inside the ZIP."
+            find extracted -maxdepth 5 -type f | head -60
+            exit 1
+          fi
+          echo "PROJECT_DIR=$(dirname "$settings_file")" >> "$GITHUB_ENV"
+
       - name: Build APK
-        run: gradle assembleDebug
+        run: gradle -p "$PROJECT_DIR" assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: nafahat-ulama-debug-apk
-          path: '**/build/outputs/apk/debug/*.apk'
+          path: extracted/**/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           
